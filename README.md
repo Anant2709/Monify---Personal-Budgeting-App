@@ -17,6 +17,7 @@ A full-stack budgeting app that combines interactive spending visualizations wit
 - Monthly income vs expenses trend (area chart)
 - Fully filterable transaction table — search, category dropdown, date range picker, and clickable category badges
 - Manual transaction entry with expense/income toggle
+- Edit and delete transactions — 3-dot menu on each row with Edit modal and Delete confirmation
 
 ### AI Spending Insights
 - 4 AI-generated insight cards analyzing your last 30 days vs the previous 30
@@ -40,8 +41,9 @@ A full-stack budgeting app that combines interactive spending visualizations wit
 ### Receipt Scanner
 - Drag-and-drop receipt upload with AI-powered data extraction (GPT-4o-mini vision)
 - Extracts merchant, date, total, individual line items, and suggested category
+- **Editable before confirm** — all extracted fields (merchant, date, total, category, line items) can be edited before adding to transactions
 - Each line item saved as a separate transaction for granular analytics
-- Two-phase flow: scan → review → confirm
+- Two-phase flow: scan → review & edit → confirm
 
 ---
 
@@ -113,6 +115,18 @@ uvicorn app.main:app --reload --port 8000
 
 The database seeds automatically on first run with 3 months of realistic mock data.
 
+### Deployment
+
+**Live demo:** [monify-personal-budgeting-app.onrender.com](https://monify-personal-budgeting-app.onrender.com) (backend) + Vercel (frontend)
+
+| Service | Platform | Notes |
+|---------|----------|-------|
+| Backend | [Render](https://render.com) | Web service, `backend/` root dir, `render.yaml` for config |
+| Frontend | [Vercel](https://vercel.com) | Root directory: `frontend`, env: `VITE_API_URL` = `https://<your-render-url>/api` |
+
+- **Backend:** Push to GitHub → Render auto-deploys. Force redeploy: Render Dashboard → Manual Deploy.
+- **Frontend:** Push to GitHub → Vercel auto-deploys. Set `VITE_API_URL` in Vercel env vars and redeploy after changes.
+
 ### Frontend Setup
 
 ```bash
@@ -136,7 +150,7 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 │   │   ├── seed_data.py         # Idempotent mock data seeding
 │   │   ├── llm_service.py       # OpenAI wrapper (text, streaming, vision)
 │   │   └── routes/
-│   │       ├── transactions.py  # CRUD + analytics endpoints
+│   │       ├── transactions.py  # CRUD + analytics (GET, POST, PUT, DELETE)
 │   │       ├── insights.py      # AI spending insights
 │   │       ├── chat.py          # Streaming AI advisor
 │   │       ├── alerts.py        # Hybrid anomaly detection + AI alerts
@@ -150,7 +164,7 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 │   │   ├── index.css            # Theme (warm coral/cream palette)
 │   │   ├── services/api.js      # API client (Axios + Fetch for SSE)
 │   │   └── components/
-│   │       ├── Dashboard/       # Summary, charts, table, filters, add modal
+│   │       ├── Dashboard/       # Summary, charts, table, filters, add/edit modal, delete
 │   │       ├── Chat/            # AI advisor with history sidebar
 │   │       ├── Alerts/          # Smart budget alerts
 │   │       ├── Scanner/         # Receipt upload + confirm
@@ -169,6 +183,7 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 - **Hybrid alerts** (rules + AI) — deterministic anomaly detection for accuracy, AI for natural language
 - **Structured JSON prompting** — LLM returns JSON for insights/alerts so the UI stays predictable
 - **Per-item receipt saving** — each line item becomes its own transaction for granular spending analysis
+- **Edit/Delete transactions** — full CRUD on transactions via 3-dot menu; editable receipt fields before confirm
 - **Client-side filtering** — instant UX for ~300 rows, avoids API round-trips
 - **LLM abstraction layer** — `llm_service.py` wraps all AI calls behind clean functions, making provider swaps trivial
 
