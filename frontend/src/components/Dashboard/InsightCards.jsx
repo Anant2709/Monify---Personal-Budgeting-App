@@ -1,4 +1,4 @@
-import { TrendingUp, TrendingDown, AlertTriangle, Lightbulb, Loader2 } from 'lucide-react';
+import { TrendingUp, TrendingDown, AlertTriangle, Lightbulb, Loader2, RefreshCw } from 'lucide-react';
 
 const ICON_MAP = {
   'trending-up': TrendingUp,
@@ -14,7 +14,7 @@ const TYPE_STYLES = {
   tip: 'border-l-purple-500 bg-purple-50',
 };
 
-export default function InsightCards({ data, loading }) {
+export default function InsightCards({ data, loading, onRefresh }) {
   if (loading) {
     return (
       <div className="bg-white rounded-2xl border border-border p-8 flex items-center justify-center gap-3">
@@ -24,14 +24,44 @@ export default function InsightCards({ data, loading }) {
     );
   }
 
-  if (!data?.length) return null;
+  if (!data?.length) {
+    return (
+      <div className="bg-white rounded-2xl border border-border p-8 flex flex-col items-center justify-center text-center">
+        <Lightbulb className="w-12 h-12 text-primary/50 mb-3" />
+        <h3 className="font-semibold text-text mb-1">AI-Powered Insights</h3>
+        <p className="text-sm text-text-secondary mb-4 max-w-sm">
+          Get personalized spending analysis powered by AI. Add transactions or click below to generate.
+        </p>
+        {onRefresh && (
+          <button
+            onClick={onRefresh}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-sm font-medium hover:bg-primary-dark transition-colors"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Load Insights
+          </button>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3">
-      <h3 className="font-semibold text-text flex items-center gap-2">
-        <Lightbulb className="w-5 h-5 text-warning" />
-        AI-Powered Insights
-      </h3>
+      <div className="flex items-center justify-between">
+        <h3 className="font-semibold text-text flex items-center gap-2">
+          <Lightbulb className="w-5 h-5 text-warning" />
+          AI-Powered Insights
+        </h3>
+        {onRefresh && (
+          <button
+            onClick={onRefresh}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-primary hover:bg-primary/10 transition-colors"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            Refresh
+          </button>
+        )}
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {data.map((insight, i) => {
           const Icon = ICON_MAP[insight.icon] || Lightbulb;

@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Bell, AlertTriangle, AlertCircle, Info, Loader2, ShieldCheck } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Bell, AlertTriangle, AlertCircle, Info, Loader2, ShieldCheck, RefreshCw } from 'lucide-react';
 import { fetchAlerts } from '../../services/api';
 
 const SEVERITY_STYLES = {
@@ -27,32 +27,55 @@ const SEVERITY_STYLES = {
 };
 
 export default function AlertsPage() {
-  const [alerts, setAlerts] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [alerts, setAlerts] = useState(null);
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    fetchAlerts()
-      .then(setAlerts)
-      .catch(console.error)
-      .finally(() => setLoading(false));
+  const loadAlerts = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await fetchAlerts();
+      setAlerts(data);
+    } catch (e) {
+      console.error('Failed to load alerts:', e);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-text flex items-center gap-2">
-          <Bell className="w-6 h-6 text-warning" />
-          Smart Budget Alerts
-        </h2>
-        <p className="text-text-secondary mt-1">
-          AI-detected spending anomalies and actionable recommendations
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-text flex items-center gap-2">
+            <Bell className="w-6 h-6 text-warning" />
+            Smart Budget Alerts
+          </h2>
+          <p className="text-text-secondary mt-1">
+            AI-detected spending anomalies and actionable recommendations
+          </p>
+        </div>
+        <button
+          onClick={loadAlerts}
+          disabled={loading}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-sm font-medium hover:bg-primary-dark transition-colors disabled:opacity-50"
+        >
+          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          {loading ? 'Loading...' : alerts === null ? 'Load Alerts' : 'Refresh'}
+        </button>
       </div>
 
       {loading ? (
         <div className="bg-white rounded-2xl border border-border p-12 flex items-center justify-center gap-3">
           <Loader2 className="w-5 h-5 animate-spin text-primary" />
           <span className="text-sm text-text-secondary">Analyzing your spending patterns...</span>
+        </div>
+      ) : alerts === null ? (
+        <div className="bg-white rounded-2xl border border-border p-12 flex flex-col items-center justify-center text-center">
+          <Bell className="w-12 h-12 text-primary/50 mb-3" />
+          <h3 className="font-semibold text-text mb-1">Smart Budget Alerts</h3>
+          <p className="text-sm text-text-secondary mb-4 max-w-sm">
+            AI-detected spending anomalies and recommendations. Click above to analyze your data.
+          </p>
         </div>
       ) : alerts.length === 0 ? (
         <div className="bg-white rounded-2xl border border-border p-12 flex flex-col items-center justify-center text-center">

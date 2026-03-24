@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import date, timedelta
@@ -190,3 +190,51 @@ def add_transaction(
     db.commit()
     db.refresh(tx)
     return serialize_transaction(tx)
+
+
+@router.put("/{tx_id}")
+def update_transaction(
+    tx_id: int,
+    merchant: str,
+    amount: float,
+    category: str,
+    description: str = "",
+    tx_type: str = "expense",
+    tx_date: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    tx = db.query(Transaction).filter(Transaction.id == tx_id).first()
+    if not tx:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+
+    cat = db.query(Category).filter(Category.name == category).first()
+    if not cat:
+        cat = Category(name=category)
+        db.add(cat)
+        db.flush()
+
+    merch = db.query(Merchant).filter(Merchant.name == merchant).first()
+    if not merch:
+        merch = Merchant(name=merchant)
+        db.add(merch)
+        db.flush()
+
+    tx.date = date.fromisoformat(tx_date) if tx_date else tx.date
+    tx.merchant_id = merch.id
+    tx.amount = amount
+    tx.category_id = cat.id
+    tx.description = description
+    tx.type = tx_type
+    db.commit()
+    db.refresh(tx)
+    return serialize_transaction(tx)
+
+
+@router.delete("/{tx_id}")
+def delete_transaction(tx_id: int, db: Session = Depends(get_db)):
+    tx = db.query(Transaction).filter(Transaction.id == tx_id).first()
+    if not tx:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    db.delete(tx)
+    db.commit()
+    return {"deleted": True, "id": tx_id}

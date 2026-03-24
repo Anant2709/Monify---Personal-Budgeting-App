@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import { X, Plus, DollarSign, Store, Tag, Calendar, FileText, ArrowDownUp } from 'lucide-react';
-import { addTransaction } from '../../services/api';
+import { useState, useEffect } from 'react';
+import { X, Plus, Pencil, DollarSign, Store, Tag, Calendar, FileText } from 'lucide-react';
+import { addTransaction, updateTransaction } from '../../services/api';
 
 const CATEGORIES = [
   'Groceries', 'Dining', 'Rent', 'Utilities', 'Subscriptions',
@@ -16,8 +16,24 @@ const initialForm = {
   type: 'expense',
 };
 
-export default function AddTransactionModal({ open, onClose, onAdded }) {
+export default function AddTransactionModal({ open, onClose, onAdded, transaction }) {
+  const isEdit = !!transaction;
   const [form, setForm] = useState(initialForm);
+
+  useEffect(() => {
+    if (transaction) {
+      setForm({
+        merchant: transaction.merchant || '',
+        amount: String(transaction.amount ?? ''),
+        category: transaction.category || 'Groceries',
+        date: transaction.date || new Date().toISOString().slice(0, 10),
+        description: transaction.description || '',
+        type: transaction.type || 'expense',
+      });
+    } else {
+      setForm(initialForm);
+    }
+  }, [transaction, open]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -35,14 +51,19 @@ export default function AddTransactionModal({ open, onClose, onAdded }) {
 
     setSaving(true);
     try {
-      await addTransaction({
+      const payload = {
         merchant: form.merchant.trim(),
         amount: parseFloat(form.amount),
         category: form.category,
         date: form.date,
         description: form.description.trim(),
         type: form.type,
-      });
+      };
+      if (isEdit) {
+        await updateTransaction(transaction.id, payload);
+      } else {
+        await addTransaction(payload);
+      }
       setForm(initialForm);
       onAdded();
       onClose();
@@ -58,7 +79,7 @@ export default function AddTransactionModal({ open, onClose, onAdded }) {
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
         <div className="flex items-center justify-between p-6 pb-4 border-b border-border">
-          <h3 className="text-lg font-bold text-text">Add Transaction</h3>
+          <h3 className="text-lg font-bold text-text">{isEdit ? 'Edit Transaction' : 'Add Transaction'}</h3>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-surface-hover transition-colors">
             <X className="w-5 h-5 text-text-muted" />
           </button>
@@ -177,7 +198,7 @@ export default function AddTransactionModal({ open, onClose, onAdded }) {
             {saving ? (
               <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Saving...</>
             ) : (
-              <><Plus className="w-4 h-4" /> Add Transaction</>
+              <>{isEdit ? <><Pencil className="w-4 h-4" /> Save Changes</> : <><Plus className="w-4 h-4" /> Add Transaction</>}</>
             )}
           </button>
         </form>

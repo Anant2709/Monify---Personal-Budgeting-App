@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import {
   ScanLine,
@@ -10,11 +10,35 @@ import {
 } from 'lucide-react';
 import { scanReceipt, confirmReceipt } from '../../services/api';
 
+const CATEGORIES = [
+  'Groceries', 'Dining', 'Rent', 'Utilities', 'Subscriptions',
+  'Entertainment', 'Transport', 'Shopping', 'Health',
+];
+
 export default function ScannerPage() {
   const [scanning, setScanning] = useState(false);
   const [result, setResult] = useState(null);
+  const [editable, setEditable] = useState(null);
   const [confirmed, setConfirmed] = useState(null);
   const [preview, setPreview] = useState(null);
+
+  useEffect(() => {
+    if (result && !result.error) {
+      setEditable({
+        merchant: result.merchant || '',
+        date: result.date || new Date().toISOString().slice(0, 10),
+        total: typeof result.total === 'number' ? result.total : parseFloat(result.total) || 0,
+        category: result.suggested_category || 'Groceries',
+        items: (result.items || []).map((i) => ({
+          name: i.name || '',
+          price: typeof i.price === 'number' ? i.price : parseFloat(i.price) || 0,
+          category: result.suggested_category || 'Groceries',
+        })),
+      });
+    } else {
+      setEditable(null);
+    }
+  }, [result]);
 
   const onDrop = useCallback(async (files) => {
     const file = files[0];
@@ -22,6 +46,7 @@ export default function ScannerPage() {
 
     setPreview(URL.createObjectURL(file));
     setResult(null);
+    setEditable(null);
     setConfirmed(null);
     setScanning(true);
 
@@ -46,14 +71,18 @@ export default function ScannerPage() {
   });
 
   async function handleConfirm() {
-    if (!result || result.error) return;
+    if (!editable) return;
     try {
       const resp = await confirmReceipt({
-        merchant: result.merchant,
-        total: result.total,
-        category: result.suggested_category,
-        date: result.date,
-        items: result.items || [],
+        merchant: editable.merchant.trim(),
+        total: editable.items?.length ? editable.items.reduce((s, i) => s + i.price, 0) : editable.total,
+        category: editable.category,
+        date: editable.date,
+        items: editable.items?.length ? editable.items.map((i) => ({
+          name: i.name,
+          price: i.price,
+          category: i.category ?? editable.category,
+        })) : [],
       });
       setConfirmed(resp);
     } catch (e) {
@@ -108,49 +137,103 @@ export default function ScannerPage() {
             </div>
           )}
 
-          {result && !result.error && (
+          {result && !result.error && editable && (
             <div className="bg-white rounded-2xl border border-border overflow-hidden">
               <div className="p-6 border-b border-border">
                 <div className="flex items-center gap-2 mb-1">
                   <ReceiptText className="w-5 h-5 text-primary" />
                   <h3 className="font-semibold text-text">Extracted Details</h3>
                 </div>
+                <p className="text-xs text-text-muted mt-1">Edit any field before adding to your transactions</p>
               </div>
 
               <div className="p-6 space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <p className="text-xs text-text-muted font-medium uppercase tracking-wide">Merchant</p>
-                    <p className="font-semibold text-text mt-1">{result.merchant}</p>
+                    <label className="text-xs text-text-muted font-medium uppercase tracking-wide">Merchant</label>
+                    <input
+                      type="text"
+                      value={editable.merchant}
+                      onChange={(e) => setEditable((prev) => ({ ...prev, merchant: e.target.value }))}
+                      className="w-full mt-1 px-3 py-2 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    />
                   </div>
                   <div>
-                    <p className="text-xs text-text-muted font-medium uppercase tracking-wide">Date</p>
-                    <p className="font-semibold text-text mt-1">{result.date}</p>
+                    <label className="text-xs text-text-muted font-medium uppercase tracking-wide">Date</label>
+                    <input
+                      type="date"
+                      value={editable.date}
+                      onChange={(e) => setEditable((prev) => ({ ...prev, date: e.target.value }))}
+                      className="w-full mt-1 px-3 py-2 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    />
                   </div>
                   <div>
-                    <p className="text-xs text-text-muted font-medium uppercase tracking-wide">Total</p>
-                    <p className="font-semibold text-2xl text-danger mt-1">
-                      ${typeof result.total === 'number' ? result.total.toFixed(2) : result.total}
-                    </p>
+                    <label className="text-xs text-text-muted font-medium uppercase tracking-wide">Total</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={editable.total}
+                      onChange={(e) => setEditable((prev) => ({ ...prev, total: parseFloat(e.target.value) || 0 }))}
+                      className="w-full mt-1 px-3 py-2 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    />
                   </div>
-                  <div>
-                    <p className="text-xs text-text-muted font-medium uppercase tracking-wide">Category</p>
-                    <p className="font-semibold text-text mt-1">
-                      <span className="px-3 py-1 rounded-lg bg-primary/10 text-primary text-sm">
-                        {result.suggested_category}
-                      </span>
-                    </p>
-                  </div>
+                  {(!editable.items?.length) && (
+                    <div>
+                      <label className="text-xs text-text-muted font-medium uppercase tracking-wide">Category</label>
+                      <select
+                        value={editable.category}
+                        onChange={(e) => setEditable((prev) => ({ ...prev, category: e.target.value }))}
+                        className="w-full mt-1 px-3 py-2 text-sm border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      >
+                        {CATEGORIES.map((c) => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                 </div>
 
-                {result.items?.length > 0 && (
+                {editable.items?.length > 0 && (
                   <div>
                     <p className="text-xs text-text-muted font-medium uppercase tracking-wide mb-2">Line Items</p>
-                    <div className="space-y-1">
-                      {result.items.map((item, i) => (
-                        <div key={i} className="flex justify-between text-sm py-1.5 border-b border-border last:border-0">
-                          <span className="text-text-secondary">{item.name}</span>
-                          <span className="font-medium">${typeof item.price === 'number' ? item.price.toFixed(2) : item.price}</span>
+                    <div className="space-y-2">
+                      {editable.items.map((item, i) => (
+                        <div key={i} className="flex gap-2 items-center py-1.5 border-b border-border last:border-0">
+                          <input
+                            type="text"
+                            value={item.name}
+                            onChange={(e) => {
+                              const next = [...editable.items];
+                              next[i] = { ...next[i], name: e.target.value };
+                              setEditable((prev) => ({ ...prev, items: next }));
+                            }}
+                            placeholder="Item name"
+                            className="flex-1 min-w-0 px-2 py-1.5 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20"
+                          />
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={item.price}
+                            onChange={(e) => {
+                              const next = [...editable.items];
+                              next[i] = { ...next[i], price: parseFloat(e.target.value) || 0 };
+                              setEditable((prev) => ({ ...prev, items: next }));
+                            }}
+                            className="w-20 px-2 py-1.5 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20"
+                          />
+                          <select
+                            value={item.category ?? editable.category}
+                            onChange={(e) => {
+                              const next = [...editable.items];
+                              next[i] = { ...next[i], category: e.target.value };
+                              setEditable((prev) => ({ ...prev, items: next }));
+                            }}
+                            className="w-28 shrink-0 px-2 py-1.5 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20"
+                          >
+                            {CATEGORIES.map((c) => (
+                              <option key={c} value={c}>{c}</option>
+                            ))}
+                          </select>
                         </div>
                       ))}
                     </div>
@@ -182,7 +265,7 @@ export default function ScannerPage() {
                     className="w-full py-3 rounded-xl bg-primary text-white font-medium text-sm hover:bg-primary-dark transition-colors flex items-center justify-center gap-2"
                   >
                     <Plus className="w-4 h-4" />
-                    Add {result.items?.length || 1} Transaction{(result.items?.length || 1) !== 1 ? 's' : ''} 
+                    Add {editable.items?.length || 1} Transaction{(editable.items?.length || 1) !== 1 ? 's' : ''} 
                   </button>
                 )}
               </div>

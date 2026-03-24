@@ -65,3 +65,17 @@ export async function addTransaction({ merchant, amount, category, description, 
   const { data } = await api.post(`/transactions?${params}`);
   return data;
 }
+
+export async function updateTransaction(id, { merchant, amount, category, description, type, date }) {
+  const params = new URLSearchParams({ merchant, amount: String(amount), category });
+  if (description) params.append('description', description);
+  if (type) params.append('tx_type', type);
+  if (date) params.append('tx_date', date);
+  const { data } = await api.put(`/transactions/${id}?${params}`);
+  return data;
+}
+
+export async function deleteTransaction(id) {
+  const { data } = await api.delete(`/transactions/${id}`);
+  return data;
+}

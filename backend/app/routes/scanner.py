@@ -66,11 +66,17 @@ async def confirm_receipt(request: Request, db: Session = Depends(get_db)):
 
     if items:
         for item in items:
+            item_cat_name = item.get("category") or category_name
+            item_cat = db.query(Category).filter(Category.name == item_cat_name).first()
+            if not item_cat:
+                item_cat = Category(name=item_cat_name)
+                db.add(item_cat)
+                db.flush()
             tx = Transaction(
                 date=tx_date,
                 merchant_id=merch.id,
                 amount=round(float(item["price"]), 2),
-                category_id=cat.id,
+                category_id=item_cat.id,
                 description=item.get("name", "Receipt item"),
                 type="expense",
             )
@@ -80,7 +86,7 @@ async def confirm_receipt(request: Request, db: Session = Depends(get_db)):
                 "id": tx.id,
                 "merchant": merch.name,
                 "amount": tx.amount,
-                "category": cat.name,
+                "category": item_cat.name,
                 "date": tx_date.isoformat(),
                 "description": tx.description,
             })

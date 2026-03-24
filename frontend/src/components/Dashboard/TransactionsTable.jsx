@@ -1,5 +1,8 @@
-import { useState, useMemo } from 'react';
-import { ArrowUpDown, Search, X, Calendar, Filter } from 'lucide-react';
+import { useState, useMemo, useRef, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { ArrowUpDown, Search, X, Calendar, Filter, MoreVertical, Pencil, Trash2 } from 'lucide-react';
+import { deleteTransaction } from '../../services/api';
+import AddTransactionModal from './AddTransactionModal';
 
 const CATEGORY_COLORS = {
   Groceries: 'bg-green-100 text-green-700',
@@ -15,7 +18,7 @@ const CATEGORY_COLORS = {
   'Side Income': 'bg-teal-100 text-teal-700',
 };
 
-export default function TransactionsTable({ data }) {
+export default function TransactionsTable({ data, onRefresh }) {
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState('date');
   const [sortDir, setSortDir] = useState('desc');
@@ -23,7 +26,18 @@ export default function TransactionsTable({ data }) {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [menuOpen, setMenuOpen] = useState(null);
+  const [editingTx, setEditingTx] = useState(null);
+  const menuButtonRef = useRef(null);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
   const perPage = 10;
+
+  useLayoutEffect(() => {
+    if (menuOpen && menuButtonRef.current) {
+      const rect = menuButtonRef.current.getBoundingClientRect();
+      setMenuPosition({ top: rect.top - 4, left: rect.right - 140 });
+    }
+  }, [menuOpen]);
 
   const categories = useMemo(() => {
     if (!data) return [];
@@ -75,6 +89,17 @@ export default function TransactionsTable({ data }) {
     setDateTo('');
     setSearch('');
     setPage(0);
+  }
+
+  async function handleDelete(t) {
+    if (!window.confirm(`Delete "${t.merchant}" — $${t.amount.toFixed(2)}?`)) return;
+    setMenuOpen(null);
+    try {
+      await deleteTransaction(t.id);
+      onRefresh?.();
+    } catch (e) {
+      console.error('Failed to delete:', e);
+    }
   }
 
   return (
@@ -158,16 +183,19 @@ export default function TransactionsTable({ data }) {
                 ['merchant', 'Merchant'],
                 ['category', 'Category'],
                 ['amount', 'Amount'],
+                ['actions', ''],
               ].map(([key, label]) => (
                 <th
                   key={key}
-                  onClick={() => toggleSort(key)}
-                  className="px-6 py-3 text-left font-medium text-text-secondary cursor-pointer hover:text-text select-none"
+                  onClick={() => key !== 'actions' && toggleSort(key)}
+                  className={`px-6 py-3 text-left font-medium text-text-secondary select-none ${key !== 'actions' ? 'cursor-pointer hover:text-text' : 'w-12'}`}
                 >
-                  <span className="inline-flex items-center gap-1">
-                    {label}
-                    <ArrowUpDown className="w-3 h-3" />
-                  </span>
+                  {key !== 'actions' ? (
+                    <span className="inline-flex items-center gap-1">
+                      {label}
+                      <ArrowUpDown className="w-3 h-3" />
+                    </span>
+                  ) : null}
                 </th>
               ))}
             </tr>
@@ -175,13 +203,13 @@ export default function TransactionsTable({ data }) {
           <tbody>
             {pageData.length === 0 ? (
               <tr>
-                <td colSpan={4} className="px-6 py-12 text-center text-text-muted text-sm">
+                <td colSpan={5} className="px-6 py-12 text-center text-text-muted text-sm">
                   No transactions match your filters.
                 </td>
               </tr>
             ) : (
               pageData.map((t) => (
-                <tr key={t.id} className="border-t border-border hover:bg-surface-alt transition-colors">
+                <tr key={t.id} className="border-t border-border hover:bg-surface-alt transition-colors group">
                   <td className="px-6 py-3 text-text-secondary">{t.date}</td>
                   <td className="px-6 py-3 font-medium text-text">{t.merchant}</td>
                   <td className="px-6 py-3">
@@ -196,6 +224,40 @@ export default function TransactionsTable({ data }) {
                   </td>
                   <td className={`px-6 py-3 font-semibold ${t.type === 'income' ? 'text-accent' : 'text-danger'}`}>
                     {t.type === 'income' ? '+' : '-'}${t.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  </td>
+                  <td className="px-6 py-3">
+                    <button
+                      ref={menuOpen === t.id ? menuButtonRef : null}
+                      onClick={() => setMenuOpen(menuOpen === t.id ? null : t.id)}
+                      className="p-1.5 rounded-lg hover:bg-surface-hover text-text-muted hover:text-text transition-colors"
+                    >
+                      <MoreVertical className="w-4 h-4" />
+                    </button>
+                    {menuOpen === t.id && createPortal(
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(null)} />
+                        <div
+                          className="fixed z-50 py-1 bg-white rounded-xl border border-border shadow-lg min-w-[140px]"
+                          style={{ top: menuPosition.top, left: menuPosition.left, transform: 'translateY(-100%)' }}
+                        >
+                          <button
+                            onClick={() => { setEditingTx(t); setMenuOpen(null); }}
+                            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-text hover:bg-surface-hover text-left"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDelete(t)}
+                            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-danger hover:bg-danger/5 text-left"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            Delete
+                          </button>
+                        </div>
+                      </>,
+                      document.body
+                    )}
                   </td>
                 </tr>
               ))
@@ -236,6 +298,13 @@ export default function TransactionsTable({ data }) {
           </div>
         )}
       </div>
+
+      <AddTransactionModal
+        open={!!editingTx}
+        onClose={() => setEditingTx(null)}
+        onAdded={() => { onRefresh?.(); setEditingTx(null); }}
+        transaction={editingTx}
+      />
     </div>
   );
 }

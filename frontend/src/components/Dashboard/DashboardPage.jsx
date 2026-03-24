@@ -20,7 +20,7 @@ export default function DashboardPage() {
   const [categories, setCategories] = useState([]);
   const [trend, setTrend] = useState([]);
   const [insights, setInsights] = useState([]);
-  const [insightsLoading, setInsightsLoading] = useState(true);
+  const [insightsLoading, setInsightsLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
@@ -46,19 +46,21 @@ export default function DashboardPage() {
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
-  useEffect(() => {
-    async function loadInsights() {
-      try {
-        const data = await fetchInsights();
-        setInsights(data);
-      } catch (e) {
-        console.error('Failed to load insights:', e);
-      } finally {
-        setInsightsLoading(false);
-      }
+  const loadInsights = useCallback(async () => {
+    setInsightsLoading(true);
+    try {
+      const data = await fetchInsights();
+      setInsights(data);
+    } catch (e) {
+      console.error('Failed to load insights:', e);
+    } finally {
+      setInsightsLoading(false);
     }
-    loadInsights();
   }, []);
+
+  const handleDataAdded = useCallback(async () => {
+    await loadAll();
+  }, [loadAll]);
 
   const handleMonthChange = useCallback(async (month) => {
     setSelectedMonth(month);
@@ -98,7 +100,7 @@ export default function DashboardPage() {
 
       <SummaryCards data={summary} />
 
-      <InsightCards data={insights} loading={insightsLoading} />
+      <InsightCards data={insights} loading={insightsLoading} onRefresh={loadInsights} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <CategoryChart
@@ -110,12 +112,12 @@ export default function DashboardPage() {
         <MonthlyTrend data={trend} />
       </div>
 
-      <TransactionsTable data={transactions} />
+      <TransactionsTable data={transactions} onRefresh={loadAll} />
 
       <AddTransactionModal
         open={showAddModal}
         onClose={() => setShowAddModal(false)}
-        onAdded={loadAll}
+        onAdded={handleDataAdded}
       />
     </div>
   );
