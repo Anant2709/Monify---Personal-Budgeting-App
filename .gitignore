@@ -3,6 +3,10 @@
 *.env
 .env.*
 
+# Interview prep (private)
+INTERVIEW_PREP.md
+*.plan.md
+
 # Python
 __pycache__/
 *.py[cod]
@@ -27,4 +31,3 @@ dist-ssr/
 
 # Logs
 *.log
-*.plan.md
