@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const api = axios.create({ baseURL: '/api' });
+const API_BASE = import.meta.env.VITE_API_URL || '/api';
+const api = axios.create({ baseURL: API_BASE });
 
 export async function fetchSummary() {
   const { data } = await api.get('/transactions/summary');
@@ -34,7 +35,7 @@ export async function fetchAlerts() {
 }
 
 export async function streamChat(message, history) {
-  const response = await fetch('/api/chat/stream', {
+  const response = await fetch(`${API_BASE}/chat/stream`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ message, history }),
